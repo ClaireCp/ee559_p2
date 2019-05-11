@@ -1,8 +1,12 @@
+import Module
+from Module import *
+import math
+
 class Sequential(Module):
     """ Sequential module, Modules are added to it in the order tehey are passed in the constructor. """
     def __init__(self, *args):
         super(Sequential, self).__init__('seq_nn')
-        for module in args:
+        for key_mod, module in enumerate(args):
             self.add_children(module)
             
     def forward(self, input):
@@ -64,9 +68,10 @@ class Linear(Module):
          
         
 class ReLU(Module):
-    def __init__(self):
+    def __init__(self, name=None):
         """ Applies the rectified linear unit function element-wise """
-        super(ReLU, self).__init__('relu')
+        if name is None: name = 'relu'
+        super(ReLU, self).__init__(name)
     
     def forward(self, input):
         self.save_for_backward = input
@@ -80,8 +85,9 @@ class ReLU(Module):
     
     
 class Tanh(Module):
-    def __init__(self):
-        super(Tanh, self).__init__('tanh')
+    def __init__(self, name=None):
+        if name is None: name = 'tanh'
+        super(Tanh, self).__init__(name)
         
     def forward(self, input):
         self.save_for_backward = input
@@ -90,7 +96,7 @@ class Tanh(Module):
     def backward(self, grad_output):
         input = self.save_for_backward
         grad_input = 1 - torch.tanh(input)**2
-        return grad_input 
+        return grad_input * grad_output
     
     
 class MSELoss(Module):
@@ -110,4 +116,15 @@ class MSELoss(Module):
         target = self.save_for_backward_target
         grad_se = 2*(input - target) / len(input)
         return grad_se
- 
+
+    
+def calculate_gain(nonlinearity='relu'):
+    linear_fns = ['linear', 'conv1d']
+    if nonlinearity in linear_fns or nonlinearity == 'sigmoid':
+        return 1
+    elif nonlinearity == 'tanh':
+        return 5.0 / 3
+    elif nonlinearity == 'relu':
+        return math.sqrt(2.0)
+    else:
+        raise ValueError("Specified non-linearity is not implemented")

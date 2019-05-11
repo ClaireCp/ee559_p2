@@ -1,8 +1,8 @@
 """ Base class for module parameters. Attributes:
         data (Tensor): parameter tensor
         grad (Tensor): tensor initialized with zero, for accumulating gradients
-        requires_grad (bool): if the parameter requires gradient
-        """
+        requires_grad (bool): if the parameter requires gradient """
+import torch
 
 class Parameter(object):
     def __init__(self, tensor=None, grad=None, requires_grad=True):

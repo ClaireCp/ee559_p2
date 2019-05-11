@@ -2,6 +2,9 @@
         name (string): name of the module. Not necessary for parameterless modules. For modules with parameters however, a unique name is necessary to identify its parameters.
         _parameters (OrderedDict): parameters of the current module, with key=name and value=parameter
         _children (OrderedDict): children of the current module, with key=name, and value=module """
+from collections import OrderedDict
+from Parameter import *
+import torch
 
 class Module(object):
     """ Base class for all Modules"""
@@ -25,7 +28,7 @@ class Module(object):
     def add_children(self, module):
         """ adds a child to the current module; the module can be accessed as an attribute using the given name. """
         assert isinstance(module, Module) and module is not None, "{} is not a Module.".format(torch.typename(module))
-        assert hasattr(self, name) and module.name not in self._children, "module {} already in submodules".format(module.name)
+        #assert module.name not in self._children, "module {} already in submodules".format(module.name)
         self._children[module.name] = module
         
     def add_parameter(self, name, param):
@@ -47,7 +50,7 @@ class Module(object):
             if name in self._parameters: return self._parameters[name]
         if '_children' in self.__dict__:
             if name in self._children: return self._children[name]
-        raise AttributeError("'{}' object has no attribute '{}'".format(self.name, name)
+        raise AttributeError("'{}' object has no attribute '{}'".format(self.name, name))
                                  
 def isEmpty(dict):
     if dict: return False
