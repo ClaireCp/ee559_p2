@@ -28,7 +28,7 @@ class Module(object):
     def add_children(self, module):
         """ adds a child to the current module; the module can be accessed as an attribute using the given name. """
         assert isinstance(module, Module) and module is not None, "{} is not a Module.".format(torch.typename(module))
-        #assert module.name not in self._children, "module {} already in submodules".format(module.name)
+        assert module.name not in self._children, "module {} already in submodules, if necessary give unique name to duplicate parameterless modules".format(module.name)
         self._children[module.name] = module
         
     def add_parameter(self, name, param):

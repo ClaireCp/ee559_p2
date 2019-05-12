@@ -35,23 +35,32 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Parameter(torch.Tensor(in_features, out_features))
+        self.bias = None
         if bias:
             self.bias = Parameter(torch.Tensor(out_features))
         self.reset_parameters()
         self.add_parameter('weight', self.weight)
-        self.add_parameter('bias', self.bias)
+        if bias:
+            self.add_parameter('bias', self.bias)
               
     def forward(self, input):
         self.save_for_backward = input
-        output = torch.matmul(input, self.weight.data)
+        if input.dim() == 1:
+            output = input * self.weight.data
+        else:
+            output = torch.matmul(input, self.weight.data)
         if self.bias: 
             output += self.bias.data
         return output
               
     def backward(self, grad_output):
         input = self.save_for_backward
-        grad_input = torch.matmul(grad_output, self.weight.data.t())
-        grad_weight = torch.matmul(input.t(), grad_output)
+        if input.dim() == 1:
+            grad_input = grad_output * self.weight.data
+            grad_weight = input * grad_output
+        else: 
+            grad_input = torch.matmul(grad_output, self.weight.data.t())
+            grad_weight = torch.matmul(input.t(), grad_output)
         self.weight.grad += grad_weight
         if self.bias: 
             grad_bias = grad_output.sum(0).squeeze(0)
@@ -97,7 +106,23 @@ class Tanh(Module):
         input = self.save_for_backward
         grad_input = 1 - torch.tanh(input)**2
         return grad_input * grad_output
+
     
+class Sigmoid(Module):
+    def __init__(self, name=None):
+        if name is None: name = 'sigmoid'
+        super(Sigmoid, self).__init__(name)
+            
+    def forward(self, input):
+        self.save_for_backward = input
+        return 1 / (1 + torch.exp(-input))
+    
+    def backward(self, grad_output):
+        input = self.save_for_backward
+        eps = 1e-12
+        sigmoid = 1 / (1 + torch.exp(-input))
+        return sigmoid * ((1 - sigmoid).clamp(min=eps)) * grad_output
+               
     
 class MSELoss(Module):
     def __init__(self, name=None):
@@ -116,8 +141,33 @@ class MSELoss(Module):
         target = self.save_for_backward_target
         grad_se = 2*(input - target) / len(input)
         return grad_se
-
     
+
+class BCELoss(Module):
+    def __init__(self, name=None):
+        if name is None: name = 'bce'
+        super(BCELoss, self).__init__(name)
+        
+    def forward(self, input, target):
+        assert(input.size() == target.size()), "Input size different to target size."
+        assert(input.dim() == 1), "Input and target must be 1d."
+        self.save_for_backward_input = input
+        self.save_for_backward_target = target
+        #return -(torch.dot(target, torch.log(input)) + torch.dot(1 - target, torch.log(1 - input))
+        eps = 1e-12
+        return - (target * torch.log(input.clamp(min=eps)) + (1 - target) * torch.log((1 - input).clamp(min=eps))).mean()
+    
+    def backward(self, grad_output=None):
+        eps = 1e-12
+        input = self.save_for_backward_input
+        target = self.save_for_backward_target   
+        return (input - target) / ((input * (1 - input)).clamp(min=eps))
+        #return - target / (input.clamp(min=eps)) + (target - input) / ((1 - target).clamp(min=eps))
+                                                   
+def clamp_custom(input, eps):
+    return input.clamp(min=eps).clamp(max=1-eps)
+        
+            
 def calculate_gain(nonlinearity='relu'):
     linear_fns = ['linear', 'conv1d']
     if nonlinearity in linear_fns or nonlinearity == 'sigmoid':
