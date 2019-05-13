@@ -51,6 +51,17 @@ class Module(object):
         if '_children' in self.__dict__:
             if name in self._children: return self._children[name]
         raise AttributeError("'{}' object has no attribute '{}'".format(self.name, name))
+        
+                
+    def eval(self):
+        self.training = False
+        for module in self._children.values():
+            module.eval()
+            
+    def train(self):
+        self.training = True
+        for module in self._children.values():
+            module.train()
                                  
 def isEmpty(dict):
     if dict: return False

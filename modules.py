@@ -44,9 +44,9 @@ class Linear(Module):
             self.add_parameter('bias', self.bias)
               
     def forward(self, input):
-        self.save_for_backward = input
+        if self.training == True:
+            self.save_for_backward = input
         if input.dim() == 1:
-            print("input.dim() == 1")
             output = input * self.weight.data
         else:
             output = torch.matmul(input, self.weight.data)
@@ -55,6 +55,7 @@ class Linear(Module):
         return output
               
     def backward(self, grad_output):
+        assert(hasattr(self, 'save_for_backward')), "backward() should only be called after a forward pass."
         input = self.save_for_backward
         if input.dim() == 1:
             grad_input = grad_output * self.weight.data
@@ -84,10 +85,12 @@ class ReLU(Module):
         super(ReLU, self).__init__(name)
     
     def forward(self, input):
-        self.save_for_backward = input
+        if self.training == True:
+            self.save_for_backward = input
         return input.clamp(min=0)
     
     def backward(self, grad_output):
+        assert(hasattr(self, 'save_for_backward')), "backward() should only be called after a forward pass."
         input = self.save_for_backward
         grad_input = grad_output.clone()
         grad_input[input < 0] = 0
@@ -100,10 +103,12 @@ class Tanh(Module):
         super(Tanh, self).__init__(name)
         
     def forward(self, input):
-        self.save_for_backward = input
+        if self.training == True:
+            self.save_for_backward = input
         return torch.tanh(input)
     
     def backward(self, grad_output):
+        assert(hasattr(self, 'save_for_backward')), "backward() should only be called after a forward pass."
         input = self.save_for_backward
         grad_input = 1 - torch.tanh(input)**2
         return grad_input * grad_output
@@ -115,12 +120,14 @@ class Sigmoid(Module):
         super(Sigmoid, self).__init__(name)
             
     def forward(self, input):
-        self.save_for_backward = input
+        if self.training == True:
+            self.save_for_backward = input
         return 1 / (1 + torch.exp(-input))
     
     def backward(self, grad_output):
-        input = self.save_for_backward
+        assert(hasattr(self, 'save_for_backward')), "backward() should only be called after a forward pass."
         eps = 1e-12
+        input = self.save_for_backward
         sigmoid = 1 / (1 + torch.exp(-input))
         #return sigmoid * ((1 - sigmoid).clamp(min=eps)) * grad_output
         return sigmoid * (1 - sigmoid) * grad_output
@@ -133,12 +140,14 @@ class MSELoss(Module):
     
     def forward(self, input, target):
         assert(input.size() == target.size()), "Input size different to target size."
-        self.save_for_backward_input = input
-        self.save_for_backward_target = target
+        if self.training == True:
+            self.save_for_backward_input = input
+            self.save_for_backward_target = target
         se = (input - target)**2
         return torch.mean(se)
 
     def backward(self, grad_output=None):
+        assert(hasattr(self, 'save_for_backward_input')), "backward() should only be called after a forward pass."
         input = self.save_for_backward_input
         target = self.save_for_backward_target
         grad_se = 2*(input - target) / len(input)
@@ -156,16 +165,19 @@ class BCELoss(Module):
         a = torch.Tensor([1])
         b = torch.Tensor([0])
         assert(torch.where(input < 0, a, b).sum() == 0. and torch.where(input > 1, a, b).sum() == 0.), "Input values must be between 0 and 1."
-        self.save_for_backward_input = input
-        self.save_for_backward_target = target
+        if self.training == True:
+            self.save_for_backward_input = input
+            self.save_for_backward_target = target
         eps = 1e-12
         #return - (target * torch.log(input.clamp(min=eps)) + (1 - target) * torch.log((1 - input).clamp(min=eps))).mean()
         return (- target * torch.log(input + eps) - (1 - target) * torch.log(1 - input + eps)).mean()
     
     def backward(self, grad_output=None):
+        assert(hasattr(self, 'save_for_backward_input')), "backward() should only be called after a forward pass."
         eps = 1e-12
-        input = self.save_for_backward_input
-        target = self.save_for_backward_target   
+        if self.training == True:
+            input = self.save_for_backward_input
+            target = self.save_for_backward_target   
         # We multiply by a constant factor (0.143) to get the same results as the BCE loss implemented in PyTorch
         # Since it's a constant factor, it doesn't actually influence the solution of the optimization
         #return (input - target) / ((input * (1 - input)).clamp(min=eps)) * 0.143
@@ -180,13 +192,15 @@ class BCEWithLogitsLoss(Module):
     def forward(self, input, target):
         assert(input.size() == target.size()), "Input size different to target size."
         assert(input.dim() == 1), "Input and target must be 1d."
-        self.save_for_backward_input = input
-        self.save_for_backward_target = target
+        if self.training == True:
+            self.save_for_backward_input = input
+            self.save_for_backward_target = target
         neg_abs = -input.abs()
         loss = input.clamp(min=0) - input * target + (1 + neg_abs.exp()).log()
         return loss.mean()
     
     def backward(self, grad_output=None):
+        assert(hasattr(self, 'save_for_backward_input')), "backward() should only be called after a forward pass."
         eps = 1e-12
         input = self.save_for_backward_input
         target = self.save_for_backward_target        
