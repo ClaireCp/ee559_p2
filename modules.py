@@ -121,7 +121,8 @@ class Sigmoid(Module):
         input = self.save_for_backward
         eps = 1e-12
         sigmoid = 1 / (1 + torch.exp(-input))
-        return sigmoid * ((1 - sigmoid).clamp(min=eps)) * grad_output
+        #return sigmoid * ((1 - sigmoid).clamp(min=eps)) * grad_output
+        return sigmoid * (1 - sigmoid) * grad_output
                
     
 class MSELoss(Module):
@@ -151,22 +152,45 @@ class BCELoss(Module):
     def forward(self, input, target):
         assert(input.size() == target.size()), "Input size different to target size."
         assert(input.dim() == 1), "Input and target must be 1d."
+        a = torch.Tensor([1])
+        b = torch.Tensor([0])
+        assert(torch.where(input < 0, a, b).sum() == 0. and torch.where(input > 1, a, b).sum() == 0.), "Input values must be between 0 and 1."
         self.save_for_backward_input = input
         self.save_for_backward_target = target
-        #return -(torch.dot(target, torch.log(input)) + torch.dot(1 - target, torch.log(1 - input))
         eps = 1e-12
-        return - (target * torch.log(input.clamp(min=eps)) + (1 - target) * torch.log((1 - input).clamp(min=eps))).mean()
+        #return - (target * torch.log(input.clamp(min=eps)) + (1 - target) * torch.log((1 - input).clamp(min=eps))).mean()
+        return (- target * torch.log(input + eps) - (1 - target) * torch.log(1 - input + eps)).mean()
     
     def backward(self, grad_output=None):
         eps = 1e-12
         input = self.save_for_backward_input
         target = self.save_for_backward_target   
-        return (input - target) / ((input * (1 - input)).clamp(min=eps))
-        #return - target / (input.clamp(min=eps)) + (target - input) / ((1 - target).clamp(min=eps))
-                                                   
-def clamp_custom(input, eps):
-    return input.clamp(min=eps).clamp(max=1-eps)
-        
+        # We multiply by a constant factor (0.143) to get the same results as the BCE loss implemented in PyTorch
+        # Since it's a constant factor, it doesn't actually influence the solution of the optimization
+        #return (input - target) / ((input * (1 - input)).clamp(min=eps)) * 0.143
+        return (input - target) / ((input + eps) * (1 - input + eps))
+    
+    
+class BCEWithLogitsLoss(Module):
+    def __init__(self, name=None):
+        if name is None: name = 'bceLogits'
+        super(BCEWithLogitsLoss, self).__init__(name)         
+            
+    def forward(self, input, target):
+        assert(input.size() == target.size()), "Input size different to target size."
+        assert(input.dim() == 1), "Input and target must be 1d."
+        self.save_for_backward_input = input
+        self.save_for_backward_target = target
+        neg_abs = -input.abs()
+        loss = input.clamp(min=0) - input * target + (1 + neg_abs.exp()).log()
+        return loss.mean()
+    
+    def backward(self, grad_output=None):
+        eps = 1e-12
+        input = self.save_for_backward_input
+        target = self.save_for_backward_target        
+        sigmoid = (1 / (1 + torch.exp(-input)))
+        return - target * (1 - sigmoid) + (1 - target) * sigmoid
             
 def calculate_gain(nonlinearity='relu'):
     linear_fns = ['linear', 'conv1d']
