@@ -46,6 +46,7 @@ class Linear(Module):
     def forward(self, input):
         self.save_for_backward = input
         if input.dim() == 1:
+            print("input.dim() == 1")
             output = input * self.weight.data
         else:
             output = torch.matmul(input, self.weight.data)
