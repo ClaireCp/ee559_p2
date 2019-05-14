@@ -23,7 +23,7 @@ def train_custom_and_torch(model, criterion, model_torch, criterion_torch,
                            nb_epochs, lr):
     input, target, _, _ = load_mock_test_data()
     
-    print("\n Working with custom DL")
+    print("\nWorking with custom DL")
     optimizer = SGD(model, lr=lr)
     for e in range(nb_epochs):
         optimizer.zero_grad()
@@ -37,7 +37,7 @@ def train_custom_and_torch(model, criterion, model_torch, criterion_torch,
  
     from torch import nn
     torch.set_grad_enabled(True)
-    print("\n Working with PyTorch")
+    print("\nWorking with PyTorch")
     optimizer_torch = torch.optim.SGD(model_torch.parameters(), lr=lr)
     for e in range(nb_epochs):
         optimizer_torch.zero_grad()
@@ -92,7 +92,7 @@ def train_and_test_model(model, criterion, data, nb_epochs, lr):
     test_acc_history = []
     train_acc_history = []
     
-    print("\n Working with custom DL")
+    print("\nWorking with custom DL")
     optimizer = SGD(model, lr=lr)
     for e in range(nb_epochs):
         optimizer.zero_grad()
@@ -118,7 +118,7 @@ def train_and_test_model_torch(model, criterion, data, nb_epochs, lr):
     
     from torch import nn
     torch.set_grad_enabled(True)
-    print("\n Working with PyTorch")
+    print("\nWorking with PyTorch")
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     for e in range(nb_epochs):
         optimizer.zero_grad()
@@ -160,7 +160,7 @@ def test_standalone_linear_module():
 def test_sequential_module_with_relu_tanh_sigmoid():
     print("\n---------------------------------------------------------------------------")
     print("Testing sequential module with every non-linearities.")
-    print(" My model: ")
+    print("My model: ")
     model = Sequential(
         Linear('fc1', 2, 6), ReLU(),
         Linear('fc2', 6, 2), Tanh(),
@@ -169,7 +169,7 @@ def test_sequential_module_with_relu_tanh_sigmoid():
     criterion = MSELoss()
     
     from torch import nn
-    print("\n Torch-model: ")
+    print("\nTorch-model: ")
     model_torch = nn.Sequential(
         nn.Linear(2, 6), nn.ReLU(),
         nn.Linear(6, 2), nn.Tanh(),
@@ -215,6 +215,21 @@ def test_not_corrupting_forward_variables_in_eval_mode():
         print("After the second forward pass in eval mode, for {}, save_for_backward = {}".format(module.name, module.save_for_backward[:3]))
     return
 
+def test_assertion_error_without_sigmoid_before_BCELoss():
+    print("\n---------------------------------------------------------------------------")
+    print("Testing assertion error when using BCELoss without final sigmoid layer.")
+    model = Sequential(
+        Linear('fc1', 2, 6), ReLU(),
+        Linear('fc2', 6, 4), Tanh(),
+        Linear('fc3', 4, 1))
+    criterion = BCELoss()  
+    data = load_mock_test_data()
+    try:
+        train_and_test_model(model, criterion, data, nb_epochs=301, lr=0.001)
+        print("Uncorrect behavior, error should have been thrown.")
+    except AssertionError as error:
+        print(error)
+
               
 def test_training_with_BCELoss():
     print("\n---------------------------------------------------------------------------")
@@ -238,22 +253,6 @@ def test_training_with_BCELoss():
     test_accuracy = test_model(model, test_input, test_target)
     print("Final test accuracy = ", test_accuracy)
     return
-
-
-def test_assertion_error_without_sigmoid_before_BCELoss():
-    print("\n---------------------------------------------------------------------------")
-    print("Testing assertion error when using BCELoss without final sigmoid layer.")
-    model = Sequential(
-        Linear('fc1', 2, 6), ReLU(),
-        Linear('fc2', 6, 4), Tanh(),
-        Linear('fc3', 4, 1))
-    criterion = BCELoss()  
-    data = load_mock_test_data()
-    try:
-        train_and_test_model(model, criterion, data, nb_epochs=301, lr=0.001)
-        print("Uncorrect behavior, error should have been thrown.")
-    except AssertionError as error:
-        print(error)
         
         
 def test_training_with_BCEWithLogitsLoss():
@@ -311,13 +310,13 @@ def test_on_mnist_data():
     del nn
     
     nb_epochs = 600
-    title = 'Plots for custom DL framework (lr=0.0001)'
+    title = 'Plots for custom DL framework (lr=0.001)'
     loss_history, train_acc_history, test_acc_history = train_and_test_model(model, criterion, data, nb_epochs, lr=0.001)
     plot_loss_and_acc(loss_history, train_acc_history, test_acc_history, title)
     test_accuracy = test_model(model, test_input, test_target)
     print("Final test accuracy = ", test_accuracy)
     
-    title = 'Plots for PyTorch (lr=0.1)'
+    title = 'Plots for PyTorch (lr=0.01)'
     loss_history_torch, train_acc_history_torch, test_acc_history_torch = train_and_test_model_torch(model_torch, criterion_torch, data, nb_epochs, lr=0.01)
     plot_loss_and_acc(loss_history_torch, train_acc_history_torch, test_acc_history_torch, title)
     test_accuracy_torch = test_model(model_torch, test_input, test_target)
