@@ -38,7 +38,7 @@ class Module(object):
         self._parameters[name] = param
         
     def param(self, recurse=True):
-        """ param returns an iterator over Parameters, each composed of a parameter tensor, and a gradient tensor of same size. The OrderedDict is empty for parameterless modules. If recurse=True, then yields the parameters of this module and all its submodules. """      
+        """ param returns an iterator/generator over Parameters, each composed of a parameter tensor, and a gradient tensor of same size. The OrderedDict is empty for parameterless modules. If recurse=True, then yields the parameters of this module and all its submodules. """      
         if recurse == False or isEmpty(self._children):
             yield self._parameters
         else:          

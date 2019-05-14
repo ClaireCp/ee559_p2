@@ -3,7 +3,7 @@ from Module import *
 import math
 
 class Sequential(Module):
-    """ Sequential module, Modules are added to it in the order tehey are passed in the constructor. """
+    """ Sequential module, Modules are added to it in the order they are passed in the constructor. """
     def __init__(self, *args):
         super(Sequential, self).__init__('seq_nn')
         for key_mod, module in enumerate(args):
@@ -113,47 +113,26 @@ class Tanh(Module):
         grad_input = 1 - torch.tanh(input)**2
         return grad_input * grad_output
 
-# https://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/  
+  
 class Sigmoid(Module):
     def __init__(self, name=None):
         if name is None: name = 'sigmoid'
         super(Sigmoid, self).__init__(name)
             
     def forward(self, input):
-        if self.training == True:
-            self.save_for_backward = input
         a = 1 / (1 + torch.exp(-input))
         b = torch.exp(input) / (1 + torch.exp(input))
-        return torch.where(input >= 0, a, b)
+        sigmoid = torch.where(input >= 0, a, b)
+        if self.training == True:
+            self.save_for_backward = sigmoid
+        return sigmoid
     
     def backward(self, grad_output):
         assert(hasattr(self, 'save_for_backward')), "backward() should only be called after a forward pass."
         eps = 1e-12
-        input = self.save_for_backward
-        sigmoid = 1 / (1 + torch.exp(-input))
-        #return sigmoid * ((1 - sigmoid).clamp(min=eps)) * grad_output
+        sigmoid = self.save_for_backward
         return sigmoid * (1 - sigmoid) * grad_output
-    
-class LogSoftMax(Module):
-    def __init__(self, name=None):
-        if name is None: name = 'lsm'
-        super(LogSoftMax, self).__init__(name)
-            
-    def forward(self, input): # We use GoodFellow normalizing trick
-        if self.training == True:
-            self.save_for_backward_input = input
-        b = torch.max(input)
-        sum = (input - b).exp().sum()
-        self.save_for_backward_output = input - b - torch.log(sum)
-        return self.save_for_backward_output
-    
-    def backward(self, grad_output):
-        assert(hasattr(self, 'save_for_backward_input')), "backward() should only be called after a forward pass."
-        input = self.save_for_backward_input
-        eps = 1e-12
-        logsoftmax = self.save_for_backward_output
-        print("logsoftmax = ", logsoftmax)
-        return (1 - logsoftmax) * grad_output
+
      
 class MSELoss(Module):
     def __init__(self, name=None):
@@ -175,13 +154,15 @@ class MSELoss(Module):
         grad_se = 2*(input - target) / len(input)
         return grad_se
     
-
+        
 class BCELoss(Module):
     def __init__(self, name=None):
         if name is None: name = 'bce'
         super(BCELoss, self).__init__(name)
         
     def forward(self, input, target):
+        if input.dim() == 2 and input.shape[1] == 1: input = input.flatten()
+        if target.dim() == 2 and target.shape[1] == 1: target = target.flatten()
         assert(input.size() == target.size()), "Input size different to target size."
         assert(input.dim() == 1), "Input and target must be 1d."
         a = torch.Tensor([1])
@@ -191,7 +172,6 @@ class BCELoss(Module):
             self.save_for_backward_input = input
             self.save_for_backward_target = target
         eps = 1e-12
-        #return - (target * torch.log(input.clamp(min=eps)) + (1 - target) * torch.log((1 - input).clamp(min=eps))).mean()
         return (- target * torch.log(input + eps) - (1 - target) * torch.log(1 - input + eps)).mean()
     
     def backward(self, grad_output=None):
@@ -200,9 +180,6 @@ class BCELoss(Module):
         if self.training == True:
             input = self.save_for_backward_input
             target = self.save_for_backward_target   
-        # We multiply by a constant factor (0.143) to get the same results as the BCE loss implemented in PyTorch
-        # Since it's a constant factor, it doesn't actually influence the solution of the optimization
-        #return (input - target) / ((input * (1 - input)).clamp(min=eps)) * 0.143
         return (input - target) / ((input + eps) * (1 - input + eps))
     
     
@@ -212,6 +189,8 @@ class BCEWithLogitsLoss(Module):
         super(BCEWithLogitsLoss, self).__init__(name)         
             
     def forward(self, input, target):
+        if input.dim() == 2 and input.shape[1] == 1: input = input.flatten()
+        if target.dim() == 2 and target.shape[1] == 1: target = target.flatten()
         assert(input.size() == target.size()), "Input size different to target size."
         assert(input.dim() == 1), "Input and target must be 1d."
         if self.training == True:
@@ -226,7 +205,9 @@ class BCEWithLogitsLoss(Module):
         eps = 1e-12
         input = self.save_for_backward_input
         target = self.save_for_backward_target        
-        sigmoid = (1 / (1 + torch.exp(-input)))
+        a = 1 / (1 + torch.exp(-input))
+        b = torch.exp(input) / (1 + torch.exp(input))
+        sigmoid = torch.where(input >= 0, a, b)
         return - target * (1 - sigmoid) + (1 - target) * sigmoid
             
 def calculate_gain(nonlinearity='relu'):
