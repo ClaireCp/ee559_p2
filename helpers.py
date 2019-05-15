@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 
 def load_data_p2():
+    """ To generate the train and test sets """
     train_input = torch.rand((1000, 2))
     test_input = torch.rand((1000, 2))
     a = torch.Tensor([[0], [1]]) # We use One-Hot-Encoding for the targets
@@ -16,6 +17,28 @@ def load_data_p2():
     train_target = torch.where(train_radius < bound, a, b).t()
     test_target = torch.where(test_radius < bound, a, b).t()
     return train_input, train_target, test_input, test_target
+
+def test_model_mse(model, test_input, test_target_index):
+    """ We define the testing function for our model. We first need to set the model in eval mode (training = False) such that the forward pass doesn't override the self.save_for_backward of each module which is necessary for the backward pass. Arguments:
+    test_input: input for our model
+    test_target_index: the target as index (ie 0 for target [1, 0]; 1 for target [0, 1] """
+    model.eval()
+    test_output = model(test_input)
+    output_to_prediction = torch.max(test_output, 1)[1]
+    test_accuracy = torch.where(output_to_prediction == test_target_index,torch.Tensor([1]), torch.Tensor([0])).sum() / len(test_input)
+    model.train()
+    return test_accuracy
+
+def visualize_mse(model, train_input, test_input, title):
+    train_output = model(train_input)
+    train_prediction = torch.max(train_output, 1)[1]
+    test_output = model(test_input)
+    test_prediction = torch.max(test_output, 1)[1]
+    plt.scatter(train_input[:,0], train_input[:,1], c=train_prediction, s=10)
+    plt.scatter(test_input[:,0], test_input[:,1], c=test_prediction, s=10)
+    plt.suptitle(title, y=0.95)
+    plt.show()
+    return
 
 ##########################################################################################
 
